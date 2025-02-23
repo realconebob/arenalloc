@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <errno.h>
 
 typedef struct an {
     void *membase;
@@ -22,29 +23,6 @@ typedef struct arena {
     // For keeping track of the largest possible thing that can be allocated to one node
     size_t node_memspace;
 } arena;
-
-int arena_init(arena **a, size_t bytes) {
-    // Create an arena object
-    (*a) = malloc(1 * sizeof(**a));
-    if(!(*a))
-        return -1;
-    (*a)->start = NULL;
-    (*a)->current = NULL;
-    (*a)->node_memspace = bytes;
-
-    // Create the base arena node & preallocate some memory
-    arenanode *base;
-    if(arenanode_init(&base, bytes) < 0) {
-        free(*a);
-        return -1;
-    }
-
-    // Put the base arenanode into the arena
-    (*a)->start = base;
-    (*a)->current = base;
-
-    return 0;
-}
 
 int arenanode_init(arenanode **an, size_t bytes) {
     // Create a base arenanode
@@ -71,11 +49,36 @@ int arenanode_init(arenanode **an, size_t bytes) {
     return 0;
 }
 
+int arena_init(arena **a, size_t bytes) {
+    // Create an arena object
+    (*a) = malloc(1 * sizeof(**a));
+    if(!(*a))
+        return -1;
+    (*a)->start = NULL;
+    (*a)->current = NULL;
+    (*a)->node_memspace = bytes;
+
+    // Create the base arena node & preallocate some memory
+    arenanode *base;
+    if(arenanode_init(&base, bytes) < 0) {
+        free(*a);
+        return -1;
+    }
+
+    // Put the base arenanode into the arena
+    (*a)->start = base;
+    (*a)->current = base;
+
+    return 0;
+}
+
 void* arena_alloc(arena * const arena, size_t bytes) {
     if(!arena)
         return NULL;
-    if(bytes > arena->node_memspace)
+    if(bytes > arena->node_memspace) {
+        errno = ENOMEM;
         return NULL;
+    }
 
     // Check if there's enough room in the current node:
         // Enough       - Increment the necessary values and return the desired memory
@@ -101,4 +104,23 @@ void* arena_alloc(arena * const arena, size_t bytes) {
     arena->current->used += bytes;
 
     return mem;
+}
+
+int arena_free(arena **arena) {
+    if(!(*arena))
+        return -1;
+
+    (*arena)->current = (*arena)->start;
+    for(arenanode *n; (*arena)->current != NULL;) {
+        n = (*arena)->current->next;
+        
+        free((*arena)->current->membase);
+        free((*arena)->current);
+
+        (*arena)->current = n;
+    }
+    free((*arena));
+    (*arena) = NULL; 
+
+    return 0;
 }

@@ -54,28 +54,40 @@ int arena_init(arena **a, size_t bytes) {
     (*a)->current = NULL;
 
     // Create the base arena node & preallocate some memory
-    arenanode *base = malloc(1 * sizeof(*base));
-    if(!base) {
-        free((*a));
+    arenanode *base;
+    if(arenanode_init(&base, bytes) < 0) {
+        free(*a);
         return -1;
     }
-    base->allocated = bytes;
-    base->used = 0;
-    base->next = NULL;
-    
-    void *mem = malloc(bytes);
-    if(!mem) {
-        free(base);
-        free((*a));
-        return -1;
-    }
-
-    base->membase = mem;
-    base->memcur = mem;
 
     // Put the base arenanode into the arena
     (*a)->start = base;
     (*a)->current = base;
+
+    return 0;
+}
+
+int arenanode_init(arenanode **an, size_t bytes) {
+    // Create a base arenanode
+    (*an) = malloc(1 * sizeof(**an));
+    if(!(*an))
+        return -1;
+
+    // Set some values
+    (*an)->allocated = bytes;
+    (*an)->used = 0;
+    (*an)->next = NULL;
+    
+    // Allocate memory for the node to dish out
+    void *mem = malloc(bytes);
+    if(!mem) {
+        free((*an));
+        return -1;
+    }
+
+    // Put the memory into the node
+    (*an)->membase = mem;
+    (*an)->memcur = mem;
 
     return 0;
 }

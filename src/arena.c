@@ -18,6 +18,9 @@ typedef struct an {
 typedef struct arena {
     arenanode *start;
     arenanode *current;
+
+    // For keeping track of the largest possible thing that can be allocated to one node
+    size_t node_memspace;
 } arena;
 
 int arena_init(arena **a, size_t bytes) {
@@ -27,6 +30,7 @@ int arena_init(arena **a, size_t bytes) {
         return -1;
     (*a)->start = NULL;
     (*a)->current = NULL;
+    (*a)->node_memspace = bytes;
 
     // Create the base arena node & preallocate some memory
     arenanode *base;
@@ -67,3 +71,34 @@ int arenanode_init(arenanode **an, size_t bytes) {
     return 0;
 }
 
+void* arena_alloc(arena * const arena, size_t bytes) {
+    if(!arena)
+        return NULL;
+    if(bytes > arena->node_memspace)
+        return NULL;
+
+    // Check if there's enough room in the current node:
+        // Enough       - Increment the necessary values and return the desired memory
+        // Not enough   - Make a new arenanode, append it to the list, and increment everything
+
+    if(bytes > ((arena->current)->allocated - (arena->current)->used)) {
+        arenanode *new;
+        if(arenanode_init(&new, arena->node_memspace) < 0)
+            return NULL;
+
+        arena->current->next = new;
+        arena->current = new;
+    }
+
+    void *mem = arena->current->memcur;
+    arena->current->memcur = (void*)(((uint8_t*)arena->current->memcur) + bytes); 
+        // I believe this is the "correct" way to do void pointer arithmetic. Technically, there is no correct way, but if I'm
+        // remembering how array pointer arithmetic works, all that's happening when dereferencing an array via x[y] notation is
+        // *(x + y), which if x is the size of a byte and y is the number of bytes, the correct way to do it for void*'s is
+        // *((uint8_t*)x + (i * sizeof(element))). If you don't care about some specific element size and just want raw bytes,
+        // it's simplified a little into *((uint8_t*)x + i)
+
+    arena->current->used += bytes;
+
+    return mem;
+}

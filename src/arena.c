@@ -112,3 +112,31 @@ int arena_free(arena **arena) {
 
     return 0;
 }
+
+
+
+// Simple Arena is an arena that can't expand whenever allocating memory, meaning what you originally allocated is what you get
+
+typedef arena simplearena;
+
+int simplearena_init(simplearena **a, size_t bytes) {
+    return arena_init(a, bytes);
+}
+
+void* simplearena_alloc(simplearena * const a, size_t bytes) {
+    // The criteria to allocate new memory in arena_alloc is 'bytes > ((a->current)->allocated - (a->current)->used)', so if this
+    // is true, just return NULL & set errno
+
+    if(!a)
+        return NULL;
+    if(bytes > ((a->current)->allocated - (a->current)->used)) {
+        errno = ENOMEM;
+        return NULL;
+    }
+
+    return arena_alloc(a, bytes);
+}
+
+int simplearena_free(simplearena **a) {
+    return arena_free(a);
+}

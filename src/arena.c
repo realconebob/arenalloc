@@ -68,8 +68,10 @@ int arena_init(arena **a, size_t bytes) {
 }
 
 void* arena_alloc(arena * const arena, size_t bytes) {
-    if(!arena)
+    if(!arena) {
+        errno = EINVAL;
         return NULL;
+    }
     if(bytes > arena->node_memspace) {
         errno = ENOMEM;
         return NULL;
@@ -84,19 +86,29 @@ void* arena_alloc(arena * const arena, size_t bytes) {
         arena->current = new;
     }
 
-    void *mem = arena->current->memcur;
-    arena->current->memcur = (void*)(((uint8_t*)arena->current->memcur) + bytes); 
+    size_t alignment = MEM_ALIGN(bytes);
+    size_t offset = bytes + alignment;
 
-    arena->current->used += bytes;
+    void *mem = arena->current->memcur;
+    arena->current->memcur = (void*)(((uint8_t*)arena->current->memcur) + offset); 
+
+    arena->current->used += offset;
 
     return mem;
+
+        // Note: This implementation assumes that malloc provides already-aligned memory. If it
+        // doesn't, that sucks and blows everything up
 }
 
 int arena_free(arena **arena) {
-    if(!arena)
+    if(!arena) {
+        errno = EINVAL;
         return -1;
-    if(!(*arena))
+    }
+    if(!(*arena)) {
+        errno = EINVAL;
         return -1;
+    }
 
     (*arena)->current = (*arena)->start;
     for(arenanode *n; (*arena)->current != NULL;) {
@@ -113,6 +125,24 @@ int arena_free(arena **arena) {
     return 0;
 }
 
+int arena_clear(arena **arena) {
+    if(!arena) {
+        errno = EINVAL;
+        return -1;
+    }
+    if(!(*arena)) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    size_t bytes = (*arena)->node_memspace;
+    
+    int ret = 0;
+    if((ret = arena_free(arena)) < 0)
+        return ret;
+    return arena_init(arena, bytes);
+}
+
 
 
 // Simple Arena is an arena that can't expand whenever allocating memory, meaning what you originally allocated is what you get
@@ -127,8 +157,10 @@ void* simplearena_alloc(simplearena * const a, size_t bytes) {
     // The criteria to allocate new memory in arena_alloc is 'bytes > ((a->current)->allocated - (a->current)->used)', so if this
     // is true, just return NULL & set errno
 
-    if(!a)
+    if(!a) {
+        errno = EINVAL;
         return NULL;
+    }
     if(bytes > ((a->current)->allocated - (a->current)->used)) {
         errno = ENOMEM;
         return NULL;
@@ -139,4 +171,8 @@ void* simplearena_alloc(simplearena * const a, size_t bytes) {
 
 int simplearena_free(simplearena **a) {
     return arena_free(a);
+}
+
+int simplearena_clear(simplearena **a) {
+    return arena_clear(a);
 }

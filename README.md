@@ -26,3 +26,10 @@ Implementation wise, there are may ways to skin this particular cat, however the
 use some form of linked list (usually singly-linked) and an arena object. The arena object tends
 to be an opaque structure which manages the linked list of arena nodes, and the nodes deal with
 the allocated memory
+
+Here are some very useful resources that I leaned on in making this:
+
+- [Ryan Fleury; Untangling Lifetimes: The Arena Allocator](https://www.rfleury.com/p/untangling-lifetimes-the-arena-allocator)
+- [Ginger Bill; Memory Allocation Strategies - Part 2](https://www.gingerbill.org/article/2019/02/08/memory-allocation-strategies-002/)
+- [@RyanFleury;  Enter The Arena: Simplifying Memory Management (2023)](https://youtu.be/TZ5a3gCCZYo)
+- [@voxelrifts; Arenas, strings and Scuffed Templates in C](https://youtu.be/3IAlJSIjvH0)
